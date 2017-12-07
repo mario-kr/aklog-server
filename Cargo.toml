@@ -1,0 +1,6 @@
+[package]
+name = "aklog-server"
+version = "0.1.0"
+authors = ["Mario Krehl <mario-krehl@gmx.de>"]
+
+[dependencies]
