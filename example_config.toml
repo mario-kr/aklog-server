@@ -1,0 +1,6 @@
+
+[[item]]
+file = "/var/log/antikoerper/os.load"
+regex = "^(\\d{10,}) (\\d+\\.\\d\\d) (\\d+\\.\\d\\d) (\\d+\\.\\d\\d).*$"
+alias = "load"
+
