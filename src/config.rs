@@ -21,19 +21,6 @@ pub struct LogItemDeser {
     alias : String,
 }
 
-impl LogItemDeser {
-    pub fn file(&self) -> String {
-        self.file.clone()
-    }
-    pub fn regex(&self) -> Result<Regex> {
-        debug!("trying to parse regex `{}`", self.regex);
-        Regex::new(self.regex.as_str()).chain_err(|| format!("failed to parse regex `{}`", self.regex))
-    }
-    pub fn alias(&self) -> String {
-        self.alias.clone()
-    }
-}
-
 /// Used for deserialization only
 #[derive(Debug, Deserialize)]
 pub struct ConfigDeser {
@@ -59,8 +46,8 @@ impl ConfigDeser {
         }
     }
 
-    pub fn get_items(&self) -> Vec<LogItemDeser> {
-        self.item.clone()
+    fn get_items(&self) -> &Vec<LogItemDeser> {
+        &self.item
     }
 }
 
@@ -75,10 +62,13 @@ pub struct LogItem {
 }
 
 impl LogItem {
+
     fn from_log_item_deser(lid : LogItemDeser) -> Result<LogItem> {
         debug!("trying to parse regex `{}`", lid.regex);
         let l_regex = Regex::new(lid.regex.as_str())
             .chain_err(|| format!("regex not parseable: '{}'", lid.regex))?;
+        // first capture is the whole match and nameless
+        // second capture is always the timestamp
         let cnames : Vec<String> = l_regex
             .capture_names()
             .skip(2)
@@ -97,6 +87,18 @@ impl LogItem {
 
         Ok(LogItem { file : lid.file, regex : l_regex, aliases : als })
     }
+
+    pub fn file(&self) -> &String {
+        &self.file
+    }
+
+    pub fn regex(&self) -> &Regex {
+        &self.regex
+    }
+
+    pub fn aliases(&self) -> &Vec<String> {
+        &self.aliases
+    }
 }
 
 pub struct Config {
@@ -105,8 +107,28 @@ pub struct Config {
 }
 
 impl Config {
+
     pub fn load(filename : String) -> Result<Self> {
-        Err(ErrorKind::ConfigParseError(String::from("meh")).into())
+        let conf_deser = ConfigDeser::load(filename)?;
+        let mut l_items : Vec<LogItem> = Vec::new();
+        for lid in conf_deser.get_items() {
+            l_items.push(LogItem::from_log_item_deser((*lid).clone())?);
+        }
+        let mut all_als : Vec<String> = Vec::new();
+        for li in &l_items {
+            for als in li.aliases() {
+                all_als.push((*als).clone());
+            }
+        }
+        Ok(Config { items: l_items, all_aliases : all_als })
+    }
+
+    pub fn items(&self) -> &Vec<LogItem> {
+        &self.items
+    }
+
+    pub fn all_aliases(&self) -> &Vec<String> {
+        &self.all_aliases
     }
 }
 

@@ -18,7 +18,7 @@ use simplelog::{SimpleLogger, LogLevelFilter, Config as LogConfig};
 
 mod error;
 mod config;
-use config::ConfigDeser;
+use config::Config;
 
 fn main() {
     let matches = App::new("aklog-server")
@@ -49,39 +49,28 @@ fn main() {
     debug!("Initialized logger");
 
     let config_file = matches.value_of("config").unwrap();
-    let config = match ConfigDeser::load(String::from(config_file)) {
+    let config = match Config::load(String::from(config_file)) {
         Ok(c) => c,
         Err(e) => {
             error!("{}", e);
             exit(1);
         },
     };
-    let items = config.get_items();
-    let aliases : Vec<_> = items.clone().into_iter()
-        .map(|it| it.alias())
-        .collect();
+    let items = config.items();
 
     let first_item = items.first().unwrap();
 
-    let mut file = File::open(first_item.file()).unwrap();
+    let file = File::open(first_item.file()).unwrap();
     use std::io::BufReader;
     use std::io::BufRead;
-    let mut bufreader = BufReader::new(file);
-    let mut line = String::new();
-    let cregex = match first_item.regex() {
-        Ok(r) => {
-            info!("regex parsed successfully");
-            r
-        },
-        Err(_) => exit(2),
-    };
-    let mut capturename_iter = cregex.capture_names().skip(1);
+    let bufreader = BufReader::new(file);
+    let mut capturename_iter = first_item.regex().capture_names().skip(1);
     while let Some(Some(name)) = capturename_iter.next() {
         println!("Named Capture: {}", name);
     }
     let mut line_iter = bufreader.lines();
     while let Some(Ok(line)) = line_iter.next() {
-        if cregex.is_match(line.as_str()) {
+        if first_item.regex().is_match(line.as_str()) {
             println!("{}", line);
         }
         else {
