@@ -1,6 +1,11 @@
 
 [[item]]
+file = "/var/log/antikoerper/temp.zone1"
+regex = "(?P<ts>\\d+)\\s(?P<temp>\\d+)"
+alias = "tempmain"
+
+[[item]]
 file = "/var/log/antikoerper/os.load"
-regex = "^(\\d{10,}) (\\d+\\.\\d\\d) (\\d+\\.\\d\\d) (\\d+\\.\\d\\d).*$"
+regex = "(\\d+)\\s(\\d+\\.\\d\\d)\\s(\\d+\\.\\d\\d)\\s(\\d+\\.\\d\\d)\\s"
 alias = "load"
 

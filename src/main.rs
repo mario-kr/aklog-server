@@ -5,18 +5,20 @@ extern crate clap;
 extern crate error_chain;
 #[macro_use]
 extern crate log;
+extern crate regex;
 #[macro_use]
 extern crate serde_derive;
 extern crate simplelog;
 
+use std::process::exit;
+use std::fs::File;
+
 use clap::{App, Arg};
 use simplelog::{SimpleLogger, LogLevelFilter, Config as LogConfig};
 
-use std::process::exit;
-
 mod error;
 mod config;
-use config::Config;
+use config::ConfigDeser;
 
 fn main() {
     let matches = App::new("aklog-server")
@@ -47,12 +49,43 @@ fn main() {
     debug!("Initialized logger");
 
     let config_file = matches.value_of("config").unwrap();
-    let config = match Config::load(String::from(config_file)) {
+    let config = match ConfigDeser::load(String::from(config_file)) {
         Ok(c) => c,
-        Err(_) => {
-            error!("Failed to open/parse configuration file: '{}'", config_file);
+        Err(e) => {
+            error!("{}", e);
             exit(1);
         },
     };
+    let items = config.get_items();
+    let aliases : Vec<_> = items.clone().into_iter()
+        .map(|it| it.alias())
+        .collect();
 
+    let first_item = items.first().unwrap();
+
+    let mut file = File::open(first_item.file()).unwrap();
+    use std::io::BufReader;
+    use std::io::BufRead;
+    let mut bufreader = BufReader::new(file);
+    let mut line = String::new();
+    let cregex = match first_item.regex() {
+        Ok(r) => {
+            info!("regex parsed successfully");
+            r
+        },
+        Err(_) => exit(2),
+    };
+    let mut capturename_iter = cregex.capture_names().skip(1);
+    while let Some(Some(name)) = capturename_iter.next() {
+        println!("Named Capture: {}", name);
+    }
+    let mut line_iter = bufreader.lines();
+    while let Some(Ok(line)) = line_iter.next() {
+        if cregex.is_match(line.as_str()) {
+            println!("{}", line);
+        }
+        else {
+            println!("did not match");
+        }
+    }
 }
