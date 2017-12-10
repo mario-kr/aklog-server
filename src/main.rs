@@ -53,7 +53,7 @@ fn search(data : Json<Search>, config: State<Config>) -> Json<SearchResponse> {
 
 #[post("/query", format = "application/json", data = "<data>")]
 fn query(data: Json<Query>, config: State<Config>) -> Result<Json<QueryResponse>> {
-
+    Err(Error::from("not implemented"))
 }
 
 fn main() {
