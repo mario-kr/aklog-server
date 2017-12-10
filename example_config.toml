@@ -1,3 +1,9 @@
+# all three attributes are required for every item
+# use unique aliases; only use letters/number or - and _
+# do not use a dot in an alias
+# only named captures will be used
+# named capture need to match a numeric value (int or a float like 10.654321)
+# \s, \d, \b a.s.o need to be escaped for toml
 
 [[item]]
 file = "/var/log/antikoerper/temp.zone1"
