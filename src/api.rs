@@ -1,3 +1,8 @@
+// This file was copied from:
+// https://raw.githubusercontent.com/nickbabcock/rrinlog/master/rrinlog-server/src/api.rs
+// on the 10th December 2017
+
+
 use chrono::prelude::*;
 use serde_json;
 
