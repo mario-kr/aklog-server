@@ -1,0 +1,11 @@
+[Unit]
+Description=Service to manage aklog-server, which serves antikoerper-logs to grafana
+
+[Service]
+Type=simple
+ExecStart=/opt/aklog-server/bin/aklog-server -c /opt/aklog-server/etc/aklog.toml
+ExecStop=/usr/bin/killall aklog-server
+
+[Install]
+WantedBy=multi-user.target
+
