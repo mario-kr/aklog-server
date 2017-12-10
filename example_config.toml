@@ -6,6 +6,6 @@ alias = "tempmain"
 
 [[item]]
 file = "/var/log/antikoerper/os.load"
-regex = "(\\d+)\\s(\\d+\\.\\d\\d)\\s(\\d+\\.\\d\\d)\\s(\\d+\\.\\d\\d)\\s"
+regex = "(?P<ts>\\d+)\\s(?P<load1m>\\d+\\.\\d\\d)\\s(?P<load5m>\\d+\\.\\d\\d)\\s(?P<load15m>\\d+\\.\\d\\d)\\s"
 alias = "load"
 

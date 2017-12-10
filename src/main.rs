@@ -33,7 +33,7 @@ mod api;
 mod config;
 mod error;
 use api::*;
-use config::Config;
+use config::{Config, LogItem};
 use error::*;
 
 #[get("/")]
@@ -53,6 +53,28 @@ fn search(data : Json<Search>, config: State<Config>) -> Json<SearchResponse> {
 
 #[post("/query", format = "application/json", data = "<data>")]
 fn query(data: Json<Query>, config: State<Config>) -> Result<Json<QueryResponse>> {
+    debug!("handling query: {:?}", data.0);
+    let targets = data.0.targets;
+    debug!("targets: {:?}", targets);
+    let response : Vec<TargetData> = Vec::new();
+    let target_collection : Vec<(LogItem, Vec<String>)> = Vec::new();
+    let mut target_hash : std::collections::HashMap<&String, (&LogItem, &Vec<String>)> = std::collections::HashMap::new();
+    for li in config.items() {
+        for t in targets.clone() {
+            if li.aliases().contains(&t.target) {
+                if let Some(&(_, ref mut cnames)) = target_hash.get(&li.alias()) {
+                    cnames.push(t.target.split('.').nth(1).ok_or(Error::from("no capture name found"))?.into());
+                }
+                else {
+                    target_hash.insert(
+                        li.alias(),
+                        (&li, &vec![t.target.split('.').nth(1).ok_or(Error::from("no capture name found"))?.into()])
+                    );
+                }
+            }
+        }
+    }
+
     Err(Error::from("not implemented"))
 }
 

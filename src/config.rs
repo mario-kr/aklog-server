@@ -58,6 +58,8 @@ impl ConfigDeser {
 pub struct LogItem {
     file : String,
     regex : Regex,
+    alias : String,
+    capture_names : Vec<String>,
     aliases : Vec<String>,
 }
 
@@ -77,7 +79,7 @@ impl LogItem {
             .collect();
         debug!("capture names: {:?}", cnames);
         let mut als : Vec<String> = Vec::new();
-        for name in cnames {
+        for name in cnames.clone() {
             let mut temp = String::from(lid.alias.as_str());
             temp.push('.');
             temp.push_str(name.as_str());
@@ -85,7 +87,15 @@ impl LogItem {
         }
         debug!("aliases: {:?}", als);
 
-        Ok(LogItem { file : lid.file, regex : l_regex, aliases : als })
+        Ok(
+            LogItem {
+                file : lid.file,
+                regex : l_regex,
+                alias: lid.alias,
+                capture_names : cnames,
+                aliases : als
+            }
+        )
     }
 
     pub fn file(&self) -> &String {
@@ -94,6 +104,14 @@ impl LogItem {
 
     pub fn regex(&self) -> &Regex {
         &self.regex
+    }
+
+    pub fn alias(&self) -> &String {
+        &self.alias
+    }
+
+    pub fn capture_names(&self) -> &Vec<String> {
+        &self.capture_names
     }
 
     pub fn aliases(&self) -> &Vec<String> {
