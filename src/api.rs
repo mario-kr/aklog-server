@@ -38,7 +38,7 @@ pub enum TargetData {
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct Series {
     pub target: String,
-    pub datapoints: Vec<[u64; 2]>,
+    pub datapoints: Vec<[f64; 2]>,
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
