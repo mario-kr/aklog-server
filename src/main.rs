@@ -20,6 +20,7 @@ extern crate serde_derive;
 extern crate serde_json;
 extern crate simplelog;
 
+use std::collections::HashMap;
 use std::process::exit;
 use std::fs::File;
 
@@ -57,18 +58,26 @@ fn query(data: Json<Query>, config: State<Config>) -> Result<Json<QueryResponse>
     let targets = data.0.targets;
     debug!("targets: {:?}", targets);
     let response : Vec<TargetData> = Vec::new();
-    let target_collection : Vec<(LogItem, Vec<String>)> = Vec::new();
-    let mut target_hash : std::collections::HashMap<&String, (&LogItem, &Vec<String>)> = std::collections::HashMap::new();
+    let mut target_hash : HashMap<&String, (&LogItem, Vec<String>)> = HashMap::new();
     for li in config.items() {
         for t in targets.clone() {
             if li.aliases().contains(&t.target) {
-                if let Some(&(_, ref mut cnames)) = target_hash.get(&li.alias()) {
-                    cnames.push(t.target.split('.').nth(1).ok_or(Error::from("no capture name found"))?.into());
+                if target_hash.contains_key(&li.alias()) {
+                    if let Some(&mut (litem, ref mut cnames)) = target_hash.get_mut(&li.alias()) {
+                        cnames.push(t.target.split('.').nth(1).ok_or(Error::from("no capture name found"))?.into());
+                    }
                 }
                 else {
                     target_hash.insert(
                         li.alias(),
-                        (&li, &vec![t.target.split('.').nth(1).ok_or(Error::from("no capture name found"))?.into()])
+                        (&li, vec![
+                            t.target
+                                .split('.')
+                                .nth(1)
+                                .ok_or(Error::from("no capture name found"))?
+                                .into()
+                            ]
+                        )
                     );
                 }
             }
