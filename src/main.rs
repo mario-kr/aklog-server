@@ -16,16 +16,15 @@ extern crate rocket_contrib;
 extern crate serde;
 #[macro_use]
 extern crate serde_derive;
-#[macro_use]
 extern crate serde_json;
 extern crate simplelog;
 
 use std::collections::HashMap;
-use std::process::exit;
 use std::fs::File;
+use std::io::{BufReader, BufRead};
+use std::process::exit;
 
 use clap::{App, Arg};
-use chrono::prelude::*;
 use rocket::State;
 use rocket_contrib::Json;
 use simplelog::{SimpleLogger, LogLevelFilter, Config as LogConfig};
@@ -57,25 +56,32 @@ fn query(data: Json<Query>, config: State<Config>) -> Result<Json<QueryResponse>
     debug!("handling query: {:?}", data.0);
     let targets = data.0.targets;
     debug!("targets: {:?}", targets);
-    let response : Vec<TargetData> = Vec::new();
-    let mut target_hash : HashMap<&String, (&LogItem, Vec<String>)> = HashMap::new();
+    let mut target_hash : HashMap<&String, (&LogItem, Vec<(String, String)>)> = HashMap::new();
     for li in config.items() {
         for t in targets.clone() {
             if li.aliases().contains(&t.target) {
                 if target_hash.contains_key(&li.alias()) {
-                    if let Some(&mut (litem, ref mut cnames)) = target_hash.get_mut(&li.alias()) {
-                        cnames.push(t.target.split('.').nth(1).ok_or(Error::from("no capture name found"))?.into());
+                    if let Some(&mut (_litem, ref mut cnames)) = target_hash.get_mut(&li.alias()) {
+                        cnames.push((
+                                t.target
+                                    .split('.')
+                                    .nth(1)
+                                    .ok_or(Error::from("no capture name found"))?
+                                    .into(),
+                                t.target.clone())
+                            );
                     }
                 }
                 else {
                     target_hash.insert(
                         li.alias(),
-                        (&li, vec![
+                        (&li, vec![(
                             t.target
                                 .split('.')
                                 .nth(1)
                                 .ok_or(Error::from("no capture name found"))?
-                                .into()
+                                .into(),
+                            t.target.clone())
                             ]
                         )
                     );
@@ -84,7 +90,56 @@ fn query(data: Json<Query>, config: State<Config>) -> Result<Json<QueryResponse>
         }
     }
 
+    let mut response : Vec<TargetData> = Vec::new();
+    for (_alias, &(logitem, ref cns)) in target_hash.iter() {
+        let mut series_vec = Vec::new();
+        for &(_, ref t) in cns.iter() {
+            series_vec.push(Series{ target : (*t).clone(), datapoints : Vec::new() });
+        }
+        let mut line_iter = BufReader::new(
+            File::open(logitem.file())
+            .chain_err(|| format!("antikoerper log file could not be opened: {}", logitem.file()))?
+        ).lines();
+        while let Some(Ok(line)) = line_iter.next() {
+            let capture_groups = logitem
+                .regex()
+                .captures_iter(&line)
+                .next()
+                .ok_or(Error::from("regex did not match"))?;
+            let timestamp = capture_groups["ts"]
+                .parse::<f64>()
+                .chain_err(|| "Failed to parse the filestamp")?;
+            for i in 0..cns.len() {
+                let captured = capture_groups[
+                    cns.get(i)
+                        .ok_or(Error::from("out of bounds: capture_groups"))?
+                        .0.as_str()
+                ].parse::<f64>()
+                .chain_err(|| "failed to parse the capture group")?;
+                series_vec
+                    .get_mut(i)
+                    .ok_or(Error::from("out of bounds: series_vec"))?
+                    .datapoints
+                    .push([
+                          captured,
+                          timestamp
+                    ]);
+            }
+        }
+        for series in series_vec.iter() {
+            response.push(TargetData::Series((*series).clone()));
+        }
+    }
+
+    Ok( Json( QueryResponse{ 0 : response } ) )
+        /*    Series{
+                target : *k,
+            BufReader::new(File::open(li.file())?).lines()
+                .map(|line| {
+                    //let capture_groups = li.regex().captures_iter(line).first()?;
+
     Err(Error::from("not implemented"))
+    */
 }
 
 fn main() {
