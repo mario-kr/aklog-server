@@ -1,6 +1,11 @@
 #![recursion_limit = "1024"]
 
+#![feature(plugin)]
+#![plugin(rocket_codegen)]
+
 extern crate clap;
+extern crate chrono;
+extern crate dimensioned;
 #[macro_use]
 extern crate error_chain;
 #[macro_use]
@@ -14,11 +19,28 @@ use std::process::exit;
 use std::fs::File;
 
 use clap::{App, Arg};
+use rocket::State;
+use rocket_contrib::Json;
 use simplelog::{SimpleLogger, LogLevelFilter, Config as LogConfig};
 
 mod error;
 mod config;
 use config::Config;
+
+#[get("/")]
+fn index() -> &'static str {
+    "Hello there!"
+}
+
+#[post("/search", format = "application/json", data = "<data>")]
+fn search(data : Json<Search>, config: State<Config>) -> Json<SearchResponse> {
+
+}
+
+#[post("query", format = "application/json", data = "<data>")]
+fn query(data: Json<Query>, config: State<Config>) -> Result<Json<QueryResponse>> {
+
+}
 
 fn main() {
     let matches = App::new("aklog-server")
@@ -45,7 +67,6 @@ fn main() {
         2 => SimpleLogger::init(LogLevelFilter::Debug, LogConfig::default()).unwrap(),
         3 | _  => SimpleLogger::init(LogLevelFilter::Trace, LogConfig::default()).unwrap(),
     };
-
     debug!("Initialized logger");
 
     let config_file = matches.value_of("config").unwrap();
@@ -56,25 +77,9 @@ fn main() {
             exit(1);
         },
     };
-    let items = config.items();
 
-    let first_item = items.first().unwrap();
-
-    let file = File::open(first_item.file()).unwrap();
-    use std::io::BufReader;
-    use std::io::BufRead;
-    let bufreader = BufReader::new(file);
-    let mut capturename_iter = first_item.regex().capture_names().skip(1);
-    while let Some(Some(name)) = capturename_iter.next() {
-        println!("Named Capture: {}", name);
-    }
-    let mut line_iter = bufreader.lines();
-    while let Some(Ok(line)) = line_iter.next() {
-        if first_item.regex().is_match(line.as_str()) {
-            println!("{}", line);
-        }
-        else {
-            println!("did not match");
-        }
-    }
+    rocket::ignite()
+        .manage(config)
+        .mount("/", routes![index, search, query])
+        .launch()
 }
