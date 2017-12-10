@@ -64,24 +64,24 @@ fn query(data: Json<Query>, config: State<Config>) -> Result<Json<QueryResponse>
                     if let Some(&mut (_litem, ref mut cnames)) = target_hash.get_mut(&li.alias()) {
                         cnames.push((
                                 t.target
-                                    .split('.')
-                                    .nth(1)
-                                    .ok_or(Error::from("no capture name found"))?
-                                    .into(),
+                                .split('.')
+                                .nth(1)
+                                .ok_or(Error::from("no capture name found"))?
+                                .into(),
                                 t.target.clone())
-                            );
+                                   );
                     }
                 }
                 else {
                     target_hash.insert(
                         li.alias(),
                         (&li, vec![(
-                            t.target
+                                t.target
                                 .split('.')
                                 .nth(1)
                                 .ok_or(Error::from("no capture name found"))?
                                 .into(),
-                            t.target.clone())
+                                t.target.clone())
                             ]
                         )
                     );
@@ -89,6 +89,8 @@ fn query(data: Json<Query>, config: State<Config>) -> Result<Json<QueryResponse>
             }
         }
     }
+    let date_from = data.0.range.from.timestamp();
+    let date_to = data.0.range.to.timestamp();
 
     let mut response : Vec<TargetData> = Vec::new();
     for (_alias, &(logitem, ref cns)) in target_hash.iter() {
@@ -99,31 +101,30 @@ fn query(data: Json<Query>, config: State<Config>) -> Result<Json<QueryResponse>
         let mut line_iter = BufReader::new(
             File::open(logitem.file())
             .chain_err(|| format!("antikoerper log file could not be opened: {}", logitem.file()))?
-        ).lines();
+            ).lines();
         while let Some(Ok(line)) = line_iter.next() {
-            let capture_groups = logitem
-                .regex()
-                .captures_iter(&line)
-                .next()
-                .ok_or(Error::from("regex did not match"))?;
-            let timestamp = capture_groups["ts"]
-                .parse::<f64>()
-                .chain_err(|| "Failed to parse the filestamp")?;
-            for i in 0..cns.len() {
-                let captured = capture_groups[
-                    cns.get(i)
-                        .ok_or(Error::from("out of bounds: capture_groups"))?
-                        .0.as_str()
-                ].parse::<f64>()
-                .chain_err(|| "failed to parse the capture group")?;
-                series_vec
-                    .get_mut(i)
-                    .ok_or(Error::from("out of bounds: series_vec"))?
-                    .datapoints
-                    .push([
-                          captured,
-                          timestamp
-                    ]);
+            if let Some(capture_groups) = logitem.regex().captures_iter(&line).next() {
+                let timestamp = capture_groups["ts"]
+                    .parse::<f64>()
+                    .chain_err(|| "Failed to parse the filestamp")?;
+                if (timestamp as i64) > date_from && (timestamp as i64) < date_to {
+                    for i in 0..cns.len() {
+                        let captured = capture_groups[
+                            cns.get(i)
+                                .ok_or(Error::from("out of bounds: capture_groups"))?
+                                .0.as_str()
+                        ].parse::<f64>()
+                        .chain_err(|| "failed to parse the capture group")?;
+                        series_vec
+                            .get_mut(i)
+                            .ok_or(Error::from("out of bounds: series_vec"))?
+                            .datapoints
+                            .push([
+                                  captured,
+                                  timestamp * 1000.0
+                            ]);
+                    }
+                }
             }
         }
         for series in series_vec.iter() {
@@ -132,34 +133,26 @@ fn query(data: Json<Query>, config: State<Config>) -> Result<Json<QueryResponse>
     }
 
     Ok( Json( QueryResponse{ 0 : response } ) )
-        /*    Series{
-                target : *k,
-            BufReader::new(File::open(li.file())?).lines()
-                .map(|line| {
-                    //let capture_groups = li.regex().captures_iter(line).first()?;
-
-    Err(Error::from("not implemented"))
-    */
 }
 
 fn main() {
     let matches = App::new("aklog-server")
-                        .version("0.1.0")
-                        .author("Mario Krehl <mario-krehl@gmx.de>")
-                        .about("Presents antikoerper-logfiles to grafana")
-                        .arg(Arg::with_name("config")
-                             .short("c")
-                             .long("config")
-                             .value_name("FILE")
-                             .help("configuration file to use")
-                             .takes_value(true)
-                             .required(true))
-                        .arg(Arg::with_name("verbosity")
-                             .short("v")
-                             .long("verbose")
-                             .help("sets the level of verbosity")
-                             .multiple(true))
-                        .get_matches();
+        .version("0.1.0")
+        .author("Mario Krehl <mario-krehl@gmx.de>")
+        .about("Presents antikoerper-logfiles to grafana")
+        .arg(Arg::with_name("config")
+             .short("c")
+             .long("config")
+             .value_name("FILE")
+             .help("configuration file to use")
+             .takes_value(true)
+             .required(true))
+        .arg(Arg::with_name("verbosity")
+             .short("v")
+             .long("verbose")
+             .help("sets the level of verbosity")
+             .multiple(true))
+        .get_matches();
 
     match matches.occurrences_of("verbosity") {
         0 => SimpleLogger::init(LogLevelFilter::Warn, LogConfig::default()).unwrap(),
