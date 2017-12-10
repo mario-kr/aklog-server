@@ -4,14 +4,51 @@
 # only named captures will be used
 # named capture need to match a numeric value (int or a float like 10.654321)
 # \s, \d, \b a.s.o need to be escaped for toml
+# for antikoerper, every regex should start like this:
+# (?P<ts>\\d{9,})\\s
 
 [[item]]
 file = "/var/log/antikoerper/temp.zone1"
-regex = "(?P<ts>\\d+)\\s(?P<temp>\\d+)"
-alias = "tempmain"
+regex = "(?P<ts>\\d{9,})\\s(?P<t1>\\d+)"
+alias = "temp"
 
 [[item]]
 file = "/var/log/antikoerper/os.load"
-regex = "(?P<ts>\\d+)\\s(?P<load1m>\\d+\\.\\d\\d)\\s(?P<load5m>\\d+\\.\\d\\d)\\s(?P<load15m>\\d+\\.\\d\\d)\\s"
+regex = "(?P<ts>\\d{9,})\\s(?P<load1m>\\d+\\.\\d\\d)\\s(?P<load5m>\\d+\\.\\d\\d)\\s(?P<load15m>\\d+\\.\\d\\d)\\s"
 alias = "load"
+
+[[item]]
+alias = "battery"
+file = "/var/log/antikoerper/os.battery"
+regex = "(?P<ts>\\d{9,})\\s.*\\s(?P<percent>\\d+)%"
+
+[[item]]
+alias = "disk-root"
+file = "/var/log/antikoerper/os.partition-root"
+regex = "(?P<ts>\\d{9,})\\s.*\\d+\\s+(?P<used>\\d+)\\s+(?P<free>\\d+)\\s+(?P<percent>\\d+)%"
+
+[[item]]
+alias = "disk-boot"
+file = "/var/log/antikoerper/os.partition-boot"
+regex = "(?P<ts>\\d{9,})\\s.*\\d+\\s+(?P<used>\\d+)\\s+(?P<free>\\d+)\\s+(?P<percent>\\d+)%"
+
+[[item]]
+alias = "disk-var"
+file = "/var/log/antikoerper/os.partition-var"
+regex = "(?P<ts>\\d{9,})\\s.*\\d+\\s+(?P<used>\\d+)\\s+(?P<free>\\d+)\\s+(?P<percent>\\d+)%"
+
+[[item]]
+alias = "disk-home"
+file = "/var/log/antikoerper/os.partition-home"
+regex = "(?P<ts>\\d{9,})\\s.*\\d+\\s+(?P<used>\\d+)\\s+(?P<free>\\d+)\\s+(?P<percent>\\d+)%"
+
+[[item]]
+alias = "disk-win"
+file = "/var/log/antikoerper/os.partition-win"
+regex = "(?P<ts>\\d{9,})\\s.*\\d+\\s+(?P<used>\\d+)\\s+(?P<free>\\d+)\\s+(?P<percent>\\d+)%"
+
+[[item]]
+alias = "process-count"
+file = "/var/log/antikoerper/os.process_count"
+regex = "(?P<ts>\\d{9,})\\s(?P<count>\\d+)"
 
