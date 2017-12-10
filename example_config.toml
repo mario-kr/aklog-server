@@ -18,6 +18,11 @@ regex = "(?P<ts>\\d{9,})\\s(?P<load1m>\\d+\\.\\d\\d)\\s(?P<load5m>\\d+\\.\\d\\d)
 alias = "load"
 
 [[item]]
+alias = "memory"
+file = "/var/log/antikoerper/os.memory"
+regex = "(?P<ts>\\d{9,})\\s.*\\s+(?P<total>\\d+)\\s+(?P<used>\\d+)\\s+(?P<free>\\d+)\\s+(?P<shared>\\d+)\\s+(?P<cache>\\d+)\\s+(?P<avail>\\d+)"
+
+[[item]]
 alias = "battery"
 file = "/var/log/antikoerper/os.battery"
 regex = "(?P<ts>\\d{9,})\\s.*\\s(?P<percent>\\d+)%"
