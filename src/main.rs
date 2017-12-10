@@ -46,7 +46,7 @@ fn search(data : Json<Search>, config: State<Config>) -> Json<SearchResponse> {
     debug!("handling search request: {:?}", data.0);
     Json(
         SearchResponse(
-            *config.all_aliases()
+            (*config.all_aliases()).clone()
         )
     )
 }
