@@ -11,14 +11,20 @@ extern crate error_chain;
 #[macro_use]
 extern crate log;
 extern crate regex;
+extern crate rocket;
+extern crate rocket_contrib;
+extern crate serde;
 #[macro_use]
 extern crate serde_derive;
+#[macro_use]
+extern crate serde_json;
 extern crate simplelog;
 
 use std::process::exit;
 use std::fs::File;
 
 use clap::{App, Arg};
+use chrono::prelude::*;
 use rocket::State;
 use rocket_contrib::Json;
 use simplelog::{SimpleLogger, LogLevelFilter, Config as LogConfig};
@@ -26,7 +32,9 @@ use simplelog::{SimpleLogger, LogLevelFilter, Config as LogConfig};
 mod api;
 mod config;
 mod error;
+use api::*;
 use config::Config;
+use error::*;
 
 #[get("/")]
 fn index() -> &'static str {
@@ -38,7 +46,7 @@ fn search(data : Json<Search>, config: State<Config>) -> Json<SearchResponse> {
 
 }
 
-#[post("query", format = "application/json", data = "<data>")]
+#[post("/query", format = "application/json", data = "<data>")]
 fn query(data: Json<Query>, config: State<Config>) -> Result<Json<QueryResponse>> {
 
 }
@@ -82,5 +90,5 @@ fn main() {
     rocket::ignite()
         .manage(config)
         .mount("/", routes![index, search, query])
-        .launch()
+        .launch();
 }
