@@ -32,17 +32,26 @@ use simplelog::{SimpleLogger, LogLevelFilter, Config as LogConfig};
 mod api;
 mod config;
 mod error;
+
 use api::*;
 use config::{Config, LogItem};
 use error::*;
 
 #[get("/")]
 fn index() -> &'static str {
+
+    //! grafana only needs a "200 Ok" on /
+
     "Hello there!"
 }
 
 #[post("/search", format = "application/json", data = "<data>")]
 fn search(data : Json<Search>, config: State<Config>) -> Json<SearchResponse> {
+
+    //! /search is used to query what metrics are offered.
+    //! In this case, those are the `alias.capturegroup_name` configured by
+    //! the user of this programm.
+
     debug!("handling search request: {:?}", data.0);
     Json(
         SearchResponse(
@@ -53,9 +62,31 @@ fn search(data : Json<Search>, config: State<Config>) -> Json<SearchResponse> {
 
 #[post("/query", format = "application/json", data = "<data>")]
 fn query(data: Json<Query>, config: State<Config>) -> Result<Json<QueryResponse>> {
+
+    //! /query needs to return actual data (if available).
+    //! the required metrics are sent by grafana in the `targets` field, as
+    //! well as is the wanted timerange.
+    //! The only sort of response written here is a `Series`, basically an
+    //! Array/Vector of two float-values, the second being a timestamp.
+    //! Returning a table is not implemented.
+
     debug!("handling query: {:?}", data.0);
+
     let targets = data.0.targets;
     debug!("targets: {:?}", targets);
+
+    // If there are several targets, it is possible they would different data
+    // from the same file;
+    // this HashMap is created for the sole purpose of being able to read and
+    // apply a regex on a potentially huge file only once.
+    // HashMap
+    // |------- Alias : &String
+    // \
+    //  Tuple
+    //  |------- &LogItem
+    //  |------- Vector of Tuple
+    //           |--- capturegroup name : String
+    //           |--- target/metric
     let mut target_hash : HashMap<&String, (&LogItem, Vec<(String, String)>)> = HashMap::new();
     for li in config.items() {
         for t in targets.clone() {
@@ -89,44 +120,71 @@ fn query(data: Json<Query>, config: State<Config>) -> Result<Json<QueryResponse>
             }
         }
     }
+
     let date_from = data.0.range.from.timestamp();
     let date_to = data.0.range.to.timestamp();
 
     let mut response : Vec<TargetData> = Vec::new();
+
+    // iterate the HashMap
     for (_alias, &(logitem, ref cns)) in target_hash.iter() {
+
+        // prepare an empty Vector of Series
         let mut series_vec = Vec::new();
         for &(_, ref t) in cns.iter() {
             series_vec.push(Series{ target : (*t).clone(), datapoints : Vec::new() });
         }
+
+        // open the current file for reading
         let mut line_iter = BufReader::new(
             File::open(logitem.file())
             .chain_err(|| format!("antikoerper log file could not be opened: {}", logitem.file()))?
             ).lines();
+
+        // read the file line by line...
         while let Some(Ok(line)) = line_iter.next() {
+
+            // ...and apply the configured regex to it.
             if let Some(capture_groups) = logitem.regex().captures_iter(&line).next() {
+
+                // save the timestamp for later
                 let timestamp = capture_groups["ts"]
                     .parse::<f64>()
                     .chain_err(|| "Failed to parse the filestamp")?;
+
+                // ignore every entry not in the timerange
                 if (timestamp as i64) > date_from && (timestamp as i64) < date_to {
+
+                    // Multiple Vectors need to be accessed with the same
+                    // index, so no iterator here.
                     for i in 0..cns.len() {
+
+                        // get the current metric and parse its content as a
+                        // float
                         let captured = capture_groups[
                             cns.get(i)
                                 .ok_or(Error::from("out of bounds: capture_groups"))?
                                 .0.as_str()
                         ].parse::<f64>()
                         .chain_err(|| "failed to parse the capture group")?;
+
+                        // put the current metric and timestamp into the right
+                        // Series
                         series_vec
                             .get_mut(i)
                             .ok_or(Error::from("out of bounds: series_vec"))?
                             .datapoints
                             .push([
                                   captured,
+                                  // grafana requires ms
                                   timestamp * 1000.0
                             ]);
                     }
                 }
             }
         }
+
+        // fill the prepared vector with all Series's
         for series in series_vec.iter() {
             response.push(TargetData::Series((*series).clone()));
         }
@@ -136,6 +194,7 @@ fn query(data: Json<Query>, config: State<Config>) -> Result<Json<QueryResponse>
 }
 
 fn main() {
+
     let matches = App::new("aklog-server")
         .version("0.1.0")
         .author("Mario Krehl <mario-krehl@gmx.de>")
@@ -154,6 +213,7 @@ fn main() {
              .multiple(true))
         .get_matches();
 
+    // Set level of verbosity and initialize the logger
     match matches.occurrences_of("verbosity") {
         0 => SimpleLogger::init(LogLevelFilter::Warn, LogConfig::default()).unwrap(),
         1 => SimpleLogger::init(LogLevelFilter::Info, LogConfig::default()).unwrap(),
