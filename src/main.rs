@@ -23,8 +23,9 @@ use rocket::State;
 use rocket_contrib::Json;
 use simplelog::{SimpleLogger, LogLevelFilter, Config as LogConfig};
 
-mod error;
+mod api;
 mod config;
+mod error;
 use config::Config;
 
 #[get("/")]
