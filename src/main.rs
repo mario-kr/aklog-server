@@ -43,7 +43,12 @@ fn index() -> &'static str {
 
 #[post("/search", format = "application/json", data = "<data>")]
 fn search(data : Json<Search>, config: State<Config>) -> Json<SearchResponse> {
-
+    debug!("handling search request: {:?}", data.0);
+    Json(
+        SearchResponse(
+            *config.all_aliases()
+        )
+    )
 }
 
 #[post("/query", format = "application/json", data = "<data>")]
