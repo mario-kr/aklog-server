@@ -108,26 +108,17 @@ fn hash_map_targets<'a>(c : &'a Config, targets : Vec<Target>)
                 if _res.contains_key(&li.alias()) {
                     if let Some(&mut (_litem, ref mut cnames)) = _res.get_mut(&li.alias()) {
                         cnames.push((
-                                t.target
-                                .split('.')
-                                .nth(1)
-                                .ok_or(Error::from("no capture name found"))?
-                                .into(),
+                                cname_from_target(&t.target)?,
                                 t.target.clone())
-                                   );
+                        );
                     }
                 }
                 else {
                     _res.insert(
                         li.alias(),
-                        (&li, vec![(
-                                t.target
-                                .split('.')
-                                .nth(1)
-                                .ok_or(Error::from("no capture name found"))?
-                                .into(),
-                                t.target.clone())
-                            ]
+                        (
+                            &li,
+                            vec![(cname_from_target(&t.target)?, t.target.clone())]
                         )
                     );
                 }
@@ -135,6 +126,16 @@ fn hash_map_targets<'a>(c : &'a Config, targets : Vec<Target>)
         }
     }
     Ok(_res)
+}
+
+/// splits the target and return the capture name part
+fn cname_from_target<'a>(t : &'a String) -> Result<String> {
+    Ok(
+        t.split('.')
+        .nth(1)
+        .ok_or(Error::from("no capture name found"))?
+        .into()
+    )
 }
 
 /// Iterate the hashmap created with the above function
