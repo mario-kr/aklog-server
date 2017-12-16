@@ -166,7 +166,7 @@ fn hash_map_iter(h : HashMap<&String, (&LogItem, Vec<(String, String)>)>, d_from
                 // save the timestamp for later
                 let timestamp = capture_groups["ts"]
                     .parse::<f64>()
-                    .chain_err(|| "Failed to parse the filestamp")?;
+                    .chain_err(|| "Failed to parse the timestamp")?;
 
                 // ignore every entry not in the timerange
                 if (timestamp as i64) > d_from && (timestamp as i64) < d_to {
