@@ -72,82 +72,17 @@ fn query(data: Json<Query>, config: State<Config>) -> Result<Json<QueryResponse>
 
     debug!("handling query: {:?}", data.0);
 
-    let targets = data.0.targets;
-    debug!("targets: {:?}", targets);
-
-    // create hashmap to iterate over
-    let mut target_hash = hash_map_targets(&config, targets)?;
-
-    let date_from = data.0.range.from.timestamp();
-    let date_to = data.0.range.to.timestamp();
-
-    let mut response : Vec<TargetData> = Vec::new();
-
-    // iterate the HashMap
-    for (_alias, &(logitem, ref cns)) in target_hash.iter() {
-
-        // prepare an empty Vector of Series
-        let mut series_vec = Vec::new();
-        for &(_, ref t) in cns.iter() {
-            series_vec.push(Series{ target : (*t).clone(), datapoints : Vec::new() });
-        }
-
-        // open the current file for reading
-        let mut line_iter = BufReader::new(
-            File::open(logitem.file())
-            .chain_err(|| format!("antikoerper log file could not be opened: {}", logitem.file()))?
-            ).lines();
-
-        // read the file line by line...
-        while let Some(Ok(line)) = line_iter.next() {
-
-            // ...and apply the configured regex to it.
-            if let Some(capture_groups) = logitem.regex().captures_iter(&line).next() {
-
-                // save the timestamp for later
-                let timestamp = capture_groups["ts"]
-                    .parse::<f64>()
-                    .chain_err(|| "Failed to parse the filestamp")?;
-
-                // ignore every entry not in the timerange
-                if (timestamp as i64) > date_from && (timestamp as i64) < date_to {
-
-                    // Multiple Vectors need to be accessed with the same
-                    // index, so no iterator here.
-                    for i in 0..cns.len() {
-
-                        // get the current metric and parse its content as a
-                        // float
-                        let captured = capture_groups[
-                            cns.get(i)
-                                .ok_or(Error::from("out of bounds: capture_groups"))?
-                                .0.as_str()
-                        ].parse::<f64>()
-                        .chain_err(|| "failed to parse the capture group")?;
-
-                        // put the current metric and timestamp into the right
-                        // Series
-                        series_vec
-                            .get_mut(i)
-                            .ok_or(Error::from("out of bounds: series_vec"))?
-                            .datapoints
-                            .push([
-                                  captured,
-                                  // grafana requires ms
-                                  timestamp * 1000.0
-                            ]);
-                    }
-                }
+    Ok(
+        Json(
+            QueryResponse{
+                0 : hash_map_iter(
+                        hash_map_targets(&config, data.0.targets)?,
+                        data.0.range.from.timestamp(),
+                        data.0.range.to.timestamp()
+                    )?
             }
-        }
-
-        // fill the prepared vector with all Series's
-        for series in series_vec.iter() {
-            response.push(TargetData::Series((*series).clone()));
-        }
-    }
-
-    Ok( Json( QueryResponse{ 0 : response } ) )
+        )
+    )
 }
 
 /// If there are several targets, it is possible they would different data
@@ -165,6 +100,7 @@ fn query(data: Json<Query>, config: State<Config>) -> Result<Json<QueryResponse>
 fn hash_map_targets<'a>(c : &'a Config, targets : Vec<Target>)
     -> Result<HashMap<&'a String, (&'a LogItem, Vec<(String, String)>)>> {
 
+    debug!("targets: {:?}", targets);
     let mut _res : HashMap<&String, (&LogItem, Vec<(String, String)>)> = HashMap::new();
     for li in c.items() {
         for t in targets.clone() {
@@ -200,6 +136,77 @@ fn hash_map_targets<'a>(c : &'a Config, targets : Vec<Target>)
     }
     Ok(_res)
 }
+
+/// Iterate the hashmap created with the above function
+fn hash_map_iter(h : HashMap<&String, (&LogItem, Vec<(String, String)>)>, d_from : i64, d_to : i64)
+    -> Result<Vec<TargetData>> {
+
+    let mut _res = Vec::new();
+    for (_alias, &(logitem, ref cns)) in h.iter() {
+
+        // prepare an empty Vector of Series
+        let mut series_vec = Vec::new();
+        for &(_, ref t) in cns.iter() {
+            series_vec.push(Series{ target : (*t).clone(), datapoints : Vec::new() });
+        }
+
+        // open the current file for reading
+        let mut line_iter = BufReader::new(
+            File::open(logitem.file())
+            .chain_err(|| format!("antikoerper log file could not be opened: {}", logitem.file()))?
+            ).lines();
+
+        // read the file line by line...
+        while let Some(Ok(line)) = line_iter.next() {
+
+            // ...and apply the configured regex to it.
+            if let Some(capture_groups) = logitem.regex().captures_iter(&line).next() {
+
+                // save the timestamp for later
+                let timestamp = capture_groups["ts"]
+                    .parse::<f64>()
+                    .chain_err(|| "Failed to parse the filestamp")?;
+
+                // ignore every entry not in the timerange
+                if (timestamp as i64) > d_from && (timestamp as i64) < d_to {
+
+                    // Multiple Vectors need to be accessed with the same
+                    // index, so no iterator here.
+                    for i in 0..cns.len() {
+
+                        // get the current metric and parse its content as a
+                        // float
+                        let captured = capture_groups[
+                            cns.get(i)
+                                .ok_or(Error::from("out of bounds: capture_groups"))?
+                                .0.as_str()
+                        ].parse::<f64>()
+                        .chain_err(|| "failed to parse the capture group")?;
+
+                        // put the current metric and timestamp into the right
+                        // Series
+                        series_vec
+                            .get_mut(i)
+                            .ok_or(Error::from("out of bounds: series_vec"))?
+                            .datapoints
+                            .push([
+                                  captured,
+                                  // grafana requires ms
+                                  timestamp * 1000.0
+                            ]);
+                    }
+                }
+            }
+        }
+
+        // fill the prepared vector with all Series's
+        for series in series_vec.iter() {
+            _res.push(TargetData::Series((*series).clone()));
+        }
+    }
+    Ok(_res)
+}
+
 
 fn main() {
 
