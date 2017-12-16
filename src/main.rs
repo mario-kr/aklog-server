@@ -72,62 +72,78 @@ fn query(data: Json<Query>, config: State<Config>) -> Result<Json<QueryResponse>
 
     debug!("handling query: {:?}", data.0);
 
-    let targets = data.0.targets;
-    debug!("targets: {:?}", targets);
+    Ok(
+        Json(
+            QueryResponse{
+                0 : hash_map_iter(
+                        hash_map_targets(&config, data.0.targets)?,
+                        data.0.range.from.timestamp(),
+                        data.0.range.to.timestamp()
+                    )?
+            }
+        )
+    )
+}
 
-    // If there are several targets, it is possible they would different data
-    // from the same file;
-    // this HashMap is created for the sole purpose of being able to read and
-    // apply a regex on a potentially huge file only once.
-    // HashMap
-    // |------- Alias : &String
-    // \
-    //  Tuple
-    //  |------- &LogItem
-    //  |------- Vector of Tuple
-    //           |--- capturegroup name : String
-    //           |--- target/metric
-    let mut target_hash : HashMap<&String, (&LogItem, Vec<(String, String)>)> = HashMap::new();
-    for li in config.items() {
+/// If there are several targets, it is possible they would different data
+/// from the same file;
+/// this HashMap is created for the sole purpose of being able to read and
+/// apply a regex on a potentially huge file only once.
+/// HashMap
+/// |------- Alias : &String
+/// \
+///  Tuple
+///  |------- &LogItem
+///  |------- Vector of Tuple
+///           |--- capturegroup name : String
+///           |--- target/metric
+fn hash_map_targets<'a>(c : &'a Config, targets : Vec<Target>)
+    -> Result<HashMap<&'a String, (&'a LogItem, Vec<(String, String)>)>> {
+
+    debug!("targets: {:?}", targets);
+    let mut _res : HashMap<&String, (&LogItem, Vec<(String, String)>)> = HashMap::new();
+    for li in c.items() {
         for t in targets.clone() {
             if li.aliases().contains(&t.target) {
-                if target_hash.contains_key(&li.alias()) {
-                    if let Some(&mut (_litem, ref mut cnames)) = target_hash.get_mut(&li.alias()) {
+                if _res.contains_key(&li.alias()) {
+                    if let Some(&mut (_litem, ref mut cnames)) = _res.get_mut(&li.alias()) {
                         cnames.push((
-                                t.target
-                                .split('.')
-                                .nth(1)
-                                .ok_or(Error::from("no capture name found"))?
-                                .into(),
+                                cname_from_target(&t.target)?,
                                 t.target.clone())
-                                   );
+                        );
                     }
                 }
                 else {
-                    target_hash.insert(
+                    _res.insert(
                         li.alias(),
-                        (&li, vec![(
-                                t.target
-                                .split('.')
-                                .nth(1)
-                                .ok_or(Error::from("no capture name found"))?
-                                .into(),
-                                t.target.clone())
-                            ]
+                        (
+                            &li,
+                            vec![(cname_from_target(&t.target)?, t.target.clone())]
                         )
                     );
                 }
             }
         }
     }
+    Ok(_res)
+}
 
-    let date_from = data.0.range.from.timestamp();
-    let date_to = data.0.range.to.timestamp();
+/// splits the target and return the capture name part
+fn cname_from_target<'a>(t : &'a String) -> Result<String> {
+    Ok(
+        t.split('.')
+        .nth(1)
+        .ok_or(Error::from("no capture name found"))?
+        .into()
+    )
+}
 
-    let mut response : Vec<TargetData> = Vec::new();
+/// Iterate the hashmap created with the above function
+fn hash_map_iter(h : HashMap<&String, (&LogItem, Vec<(String, String)>)>, d_from : i64, d_to : i64)
+    -> Result<Vec<TargetData>> {
 
-    // iterate the HashMap
-    for (_alias, &(logitem, ref cns)) in target_hash.iter() {
+    let mut _res = Vec::new();
+    for (_alias, &(logitem, ref cns)) in h.iter() {
 
         // prepare an empty Vector of Series
         let mut series_vec = Vec::new();
@@ -150,10 +166,10 @@ fn query(data: Json<Query>, config: State<Config>) -> Result<Json<QueryResponse>
                 // save the timestamp for later
                 let timestamp = capture_groups["ts"]
                     .parse::<f64>()
-                    .chain_err(|| "Failed to parse the filestamp")?;
+                    .chain_err(|| "Failed to parse the timestamp")?;
 
                 // ignore every entry not in the timerange
-                if (timestamp as i64) > date_from && (timestamp as i64) < date_to {
+                if (timestamp as i64) > d_from && (timestamp as i64) < d_to {
 
                     // Multiple Vectors need to be accessed with the same
                     // index, so no iterator here.
@@ -186,12 +202,12 @@ fn query(data: Json<Query>, config: State<Config>) -> Result<Json<QueryResponse>
 
         // fill the prepared vector with all Series's
         for series in series_vec.iter() {
-            response.push(TargetData::Series((*series).clone()));
+            _res.push(TargetData::Series((*series).clone()));
         }
     }
-
-    Ok( Json( QueryResponse{ 0 : response } ) )
+    Ok(_res)
 }
+
 
 fn main() {
 

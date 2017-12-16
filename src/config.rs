@@ -135,7 +135,7 @@ impl LogItem {
     }
 }
 
-/// Containts more immediately usable data
+/// Contains more immediately usable data
 pub struct Config {
     items : Vec<LogItem>,
     all_aliases : Vec<String>,
