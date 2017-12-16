@@ -75,51 +75,8 @@ fn query(data: Json<Query>, config: State<Config>) -> Result<Json<QueryResponse>
     let targets = data.0.targets;
     debug!("targets: {:?}", targets);
 
-    // If there are several targets, it is possible they would different data
-    // from the same file;
-    // this HashMap is created for the sole purpose of being able to read and
-    // apply a regex on a potentially huge file only once.
-    // HashMap
-    // |------- Alias : &String
-    // \
-    //  Tuple
-    //  |------- &LogItem
-    //  |------- Vector of Tuple
-    //           |--- capturegroup name : String
-    //           |--- target/metric
-    let mut target_hash : HashMap<&String, (&LogItem, Vec<(String, String)>)> = HashMap::new();
-    for li in config.items() {
-        for t in targets.clone() {
-            if li.aliases().contains(&t.target) {
-                if target_hash.contains_key(&li.alias()) {
-                    if let Some(&mut (_litem, ref mut cnames)) = target_hash.get_mut(&li.alias()) {
-                        cnames.push((
-                                t.target
-                                .split('.')
-                                .nth(1)
-                                .ok_or(Error::from("no capture name found"))?
-                                .into(),
-                                t.target.clone())
-                                   );
-                    }
-                }
-                else {
-                    target_hash.insert(
-                        li.alias(),
-                        (&li, vec![(
-                                t.target
-                                .split('.')
-                                .nth(1)
-                                .ok_or(Error::from("no capture name found"))?
-                                .into(),
-                                t.target.clone())
-                            ]
-                        )
-                    );
-                }
-            }
-        }
-    }
+    // create hashmap to iterate over
+    let mut target_hash = hash_map_targets(&config, targets)?;
 
     let date_from = data.0.range.from.timestamp();
     let date_to = data.0.range.to.timestamp();
@@ -191,6 +148,57 @@ fn query(data: Json<Query>, config: State<Config>) -> Result<Json<QueryResponse>
     }
 
     Ok( Json( QueryResponse{ 0 : response } ) )
+}
+
+/// If there are several targets, it is possible they would different data
+/// from the same file;
+/// this HashMap is created for the sole purpose of being able to read and
+/// apply a regex on a potentially huge file only once.
+/// HashMap
+/// |------- Alias : &String
+/// \
+///  Tuple
+///  |------- &LogItem
+///  |------- Vector of Tuple
+///           |--- capturegroup name : String
+///           |--- target/metric
+fn hash_map_targets<'a>(c : &'a Config, targets : Vec<Target>)
+    -> Result<HashMap<&'a String, (&'a LogItem, Vec<(String, String)>)>> {
+
+    let mut _res : HashMap<&String, (&LogItem, Vec<(String, String)>)> = HashMap::new();
+    for li in c.items() {
+        for t in targets.clone() {
+            if li.aliases().contains(&t.target) {
+                if _res.contains_key(&li.alias()) {
+                    if let Some(&mut (_litem, ref mut cnames)) = _res.get_mut(&li.alias()) {
+                        cnames.push((
+                                t.target
+                                .split('.')
+                                .nth(1)
+                                .ok_or(Error::from("no capture name found"))?
+                                .into(),
+                                t.target.clone())
+                                   );
+                    }
+                }
+                else {
+                    _res.insert(
+                        li.alias(),
+                        (&li, vec![(
+                                t.target
+                                .split('.')
+                                .nth(1)
+                                .ok_or(Error::from("no capture name found"))?
+                                .into(),
+                                t.target.clone())
+                            ]
+                        )
+                    );
+                }
+            }
+        }
+    }
+    Ok(_res)
 }
 
 fn main() {
