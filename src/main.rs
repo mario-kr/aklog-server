@@ -105,8 +105,8 @@ fn hash_map_targets<'a>(c : &'a Config, targets : Vec<Target>)
     for li in c.items() {
         for t in targets.clone() {
             if li.aliases().contains(&t.target) {
-                if _res.contains_key(&li.alias()) {
-                    if let Some(&mut (_litem, ref mut cnames)) = _res.get_mut(&li.alias()) {
+                if _res.contains_key(&li.file()) {
+                    if let Some(&mut (_litem, ref mut cnames)) = _res.get_mut(&li.file()) {
                         cnames.push((
                                 cname_from_target(&t.target)?,
                                 t.target.clone())
@@ -115,7 +115,7 @@ fn hash_map_targets<'a>(c : &'a Config, targets : Vec<Target>)
                 }
                 else {
                     _res.insert(
-                        li.alias(),
+                        li.file(),
                         (
                             &li,
                             vec![(cname_from_target(&t.target)?, t.target.clone())]
@@ -143,7 +143,7 @@ fn hash_map_iter(h : HashMap<&String, (&LogItem, Vec<(String, String)>)>, d_from
     -> Result<Vec<TargetData>> {
 
     let mut _res = Vec::new();
-    for (_alias, &(logitem, ref cns)) in h.iter() {
+    for (file, &(logitem, ref cns)) in h.iter() {
 
         // prepare an empty Vector of Series
         let mut series_vec = Vec::new();
@@ -153,7 +153,7 @@ fn hash_map_iter(h : HashMap<&String, (&LogItem, Vec<(String, String)>)>, d_from
 
         // open the current file for reading
         let mut line_iter = BufReader::new(
-            File::open(logitem.file())
+            File::open(file)
             .chain_err(|| format!("antikoerper log file could not be opened: {}", logitem.file()))?
             ).lines();
 
