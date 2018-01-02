@@ -1,5 +1,5 @@
 # all three attributes are required for every item
-# use unique aliases; only use letters/number or - and _
+# file names are considered unique: so only 1 regex may be configured for a file
 # do not use a dot in an alias
 # only named captures will be used
 # named capture need to match a numeric value (int or a float like 10.654321)
