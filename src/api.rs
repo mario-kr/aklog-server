@@ -24,7 +24,7 @@ pub struct Query {
     pub range: Range,
     #[serde(rename = "intervalMs")] pub interval_ms: i32,
     #[serde(rename = "maxDataPoints")] pub max_data_points: i32,
-    pub format: String,
+    pub format: Option<String>,
     pub targets: Vec<Target>,
 }
 
