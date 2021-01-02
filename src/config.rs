@@ -11,7 +11,7 @@ use error::*;
 //  structs for deserialization       //
 //------------------------------------//
 
-/// Holds data for one antikoerper Log-File.
+/// Holds data for one Log-File.
 /// Used for deserialization only
 #[derive(Clone, Debug, Deserialize)]
 pub struct LogItemDeser {

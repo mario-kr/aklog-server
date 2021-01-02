@@ -1,5 +1,5 @@
 [Unit]
-Description=Service to manage aklog-server, which serves antikoerper-logs to grafana
+Description=Service to manage aklog-server, which serves logs to grafana
 
 [Service]
 Type=simple

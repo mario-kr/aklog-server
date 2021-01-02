@@ -151,7 +151,7 @@ fn hash_map_iter(h : HashMap<&String, (&LogItem, Vec<(String, String)>)>, d_from
         // open the current file for reading
         let mut line_iter = BufReader::new(
             File::open(file)
-            .chain_err(|| format!("antikoerper log file could not be opened: {}", logitem.file()))?
+            .chain_err(|| format!("log file could not be opened: {}", logitem.file()))?
             ).lines();
 
         // read the file line by line...
