@@ -3,8 +3,7 @@
 extern crate log;
 extern crate toml;
 
-use std::fs::File;
-use std::io::Read;
+use std::path::PathBuf;
 use regex::Regex;
 use error::*;
 
@@ -30,26 +29,19 @@ pub struct ConfigDeser {
 impl ConfigDeser {
 
     /// Tries to open, read and parse a toml-file
-    pub fn load(filename : String) -> Result<ConfigDeser> {
+    pub fn load(path: PathBuf) -> Result<ConfigDeser> {
+        debug!("configuration file name: '{}'", path.display());
 
-        debug!("configuration file name: '{}'", filename);
-
-        let mut file = File::open(filename.clone())
-            .chain_err(|| "configuration file could not be opened")?;
-        debug!("configuration file successfully opened");
-
-        let mut content = String::new();
-        file.read_to_string(&mut content)
+        let s = std::fs::read_to_string(&path)
             .chain_err(|| "configuration file could not be read")?;
-        debug!("configuration file successfully read");
 
-        match toml::from_str(content.as_str()) {
-            Ok(config) => {
+        toml::from_str(&s)
+            .map(|obj| {
                 info!("successfully parsed configuration file");
-                Ok(config)
-            },
-            _ => Err(ErrorKind::ConfigParseError(filename).into()),
-        }
+                debug!("Config = {:?}", obj);
+                obj
+            })
+            .map_err(|_| ErrorKind::ConfigParseError(path).into())
     }
 
     fn get_items(&self) -> &Vec<LogItemDeser> {
@@ -145,9 +137,8 @@ impl Config {
 
     /// Lets serde do the deserialization, and transforms the given data
     /// for later access
-    pub fn load(filename : String) -> Result<Self> {
-
-        let conf_deser = ConfigDeser::load(filename)?;
+    pub fn load(path: PathBuf) -> Result<Self> {
+        let conf_deser = ConfigDeser::load(path)?;
 
         let mut l_items : Vec<LogItem> = Vec::new();
         for lid in conf_deser.get_items() {

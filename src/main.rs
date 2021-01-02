@@ -21,6 +21,7 @@ extern crate simplelog;
 
 use std::collections::HashMap;
 use std::fs::File;
+use std::path::PathBuf;
 use std::io::{BufReader, BufRead};
 use std::process::exit;
 use std::str::FromStr;
@@ -254,7 +255,7 @@ fn main() {
     debug!("Initialized logger");
 
     let config_file = matches.value_of("config").unwrap();
-    let config = match Config::load(String::from(config_file)) {
+    let config = match Config::load(PathBuf::from(String::from(config_file))) {
         Ok(c) => c,
         Err(e) => {
             error!("{}", e);
