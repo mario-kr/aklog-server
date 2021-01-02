@@ -215,7 +215,7 @@ fn main() -> Result<()> {
     let matches = App::new("aklog-server")
         .version("0.1.0")
         .author("Mario Krehl <mario-krehl@gmx.de>")
-        .about("Presents antikoerper-logfiles to grafana")
+        .about("Presents regex-parsable data to grafana")
         .arg(Arg::with_name("config")
              .short("c")
              .long("config")
