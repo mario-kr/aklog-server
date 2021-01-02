@@ -245,12 +245,13 @@ fn main() -> Result<()> {
         .get_matches();
 
     // Set level of verbosity and initialize the logger
-    match matches.occurrences_of("verbosity") {
-        0 => SimpleLogger::init(LogLevelFilter::Warn, LogConfig::default()).unwrap(),
-        1 => SimpleLogger::init(LogLevelFilter::Info, LogConfig::default()).unwrap(),
-        2 => SimpleLogger::init(LogLevelFilter::Debug, LogConfig::default()).unwrap(),
-        3 | _  => SimpleLogger::init(LogLevelFilter::Trace, LogConfig::default()).unwrap(),
+    let filter = match matches.occurrences_of("verbosity") {
+        0      => LogLevelFilter::Warn,
+        1      => LogLevelFilter::Info,
+        2      => LogLevelFilter::Debug,
+        3 | _  => LogLevelFilter::Trace,
     };
+    SimpleLogger::init(filter, LogConfig::default()).unwrap();
     debug!("Initialized logger");
 
     let config_file = matches.value_of("config").unwrap();
