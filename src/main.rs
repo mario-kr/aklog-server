@@ -26,7 +26,7 @@ use std::process::exit;
 
 use clap::{App, Arg};
 use rocket::State;
-use rocket_contrib::Json;
+use rocket_contrib::json::Json;
 use simplelog::{SimpleLogger, LogLevelFilter, Config as LogConfig};
 
 mod api;
