@@ -18,6 +18,7 @@ extern crate serde;
 extern crate serde_derive;
 extern crate serde_json;
 extern crate simplelog;
+extern crate getset;
 
 use std::collections::HashMap;
 use std::fs::File;

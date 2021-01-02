@@ -6,6 +6,7 @@ extern crate toml;
 use std::path::PathBuf;
 use regex::Regex;
 use error::*;
+use getset::Getters;
 
 //------------------------------------//
 //  structs for deserialization       //
@@ -56,11 +57,21 @@ impl ConfigDeser {
 /// The deserialized Item would nearly always require some operation on its
 /// contents to use it, so we do those operations beforehand and only access
 /// the useful data from main().
+#[derive(Getters)]
 pub struct LogItem {
+    #[getset(get = "pub")]
     file : String,
+
+    #[getset(get = "pub")]
     regex : Regex,
+
+    #[getset(get = "pub")]
     alias : String,
+
+    #[getset(get = "pub")]
     capture_names : Vec<String>,
+
+    #[getset(get = "pub")]
     aliases : Vec<String>,
 }
 
@@ -105,31 +116,15 @@ impl LogItem {
             }
         )
     }
-
-    pub fn file(&self) -> &String {
-        &self.file
-    }
-
-    pub fn regex(&self) -> &Regex {
-        &self.regex
-    }
-
-    pub fn alias(&self) -> &String {
-        &self.alias
-    }
-
-    pub fn capture_names(&self) -> &Vec<String> {
-        &self.capture_names
-    }
-
-    pub fn aliases(&self) -> &Vec<String> {
-        &self.aliases
-    }
 }
 
 /// Contains more immediately usable data
+#[derive(Getters)]
 pub struct Config {
+    #[getset(get = "pub")]
     items : Vec<LogItem>,
+
+    #[getset(get = "pub")]
     all_aliases : Vec<String>,
 }
 
@@ -154,14 +149,6 @@ impl Config {
         }
 
         Ok(Config { items: l_items, all_aliases : all_als })
-    }
-
-    pub fn items(&self) -> &Vec<LogItem> {
-        &self.items
-    }
-
-    pub fn all_aliases(&self) -> &Vec<String> {
-        &self.all_aliases
     }
 }
 
