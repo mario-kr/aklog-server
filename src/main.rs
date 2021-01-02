@@ -132,12 +132,7 @@ fn hash_map_targets<'a>(c : &'a Config, targets : Vec<Target>)
 
 /// splits the target and return the capture name part
 fn cname_from_target<'a>(t : &'a String) -> Result<String> {
-    Ok(
-        t.split('.')
-        .nth(1)
-        .ok_or(Error::from("no capture name found"))?
-        .into()
-    )
+    t.split('.').nth(1).map(str::to_string).ok_or(Error::from("no capture name found").into())
 }
 
 /// Iterate the hashmap created with the above function
