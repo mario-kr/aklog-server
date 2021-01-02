@@ -87,7 +87,7 @@ impl LogItem {
         // One Regex may contain multiple named capture groups, so a vector
         // with all names is prepared here.
         let mut als : Vec<String> = Vec::new();
-        for name in cnames.clone() {
+        for name in cnames.iter() {
             let mut temp = String::from(lid.alias.as_str());
             temp.push('.');
             temp.push_str(name.as_str());
