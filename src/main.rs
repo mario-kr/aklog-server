@@ -102,12 +102,12 @@ fn hash_map_targets<'a>(c : &'a Config, targets : Vec<Target>)
     -> Result<HashMap<&'a String, (&'a LogItem, Vec<(String, String)>)>> {
 
     debug!("targets: {:?}", targets);
-    let mut _res : HashMap<&String, (&LogItem, Vec<(String, String)>)> = HashMap::new();
+    let mut res : HashMap<&String, (&LogItem, Vec<(String, String)>)> = HashMap::new();
     for li in c.items() {
         for t in targets.clone() {
             if li.aliases().contains(&t.target) {
-                if _res.contains_key(&li.file()) {
-                    if let Some(&mut (_litem, ref mut cnames)) = _res.get_mut(&li.file()) {
+                if res.contains_key(&li.file()) {
+                    if let Some(&mut (_litem, ref mut cnames)) = res.get_mut(&li.file()) {
                         cnames.push((
                                 cname_from_target(&t.target)?,
                                 t.target.clone())
@@ -115,7 +115,7 @@ fn hash_map_targets<'a>(c : &'a Config, targets : Vec<Target>)
                     }
                 }
                 else {
-                    _res.insert(
+                    res.insert(
                         li.file(),
                         (
                             &li,
@@ -126,7 +126,8 @@ fn hash_map_targets<'a>(c : &'a Config, targets : Vec<Target>)
             }
         }
     }
-    Ok(_res)
+
+    Ok(res)
 }
 
 /// splits the target and return the capture name part
@@ -143,7 +144,7 @@ fn cname_from_target<'a>(t : &'a String) -> Result<String> {
 fn hash_map_iter(h : HashMap<&String, (&LogItem, Vec<(String, String)>)>, d_from : i64, d_to : i64)
     -> Result<Vec<TargetData>> {
 
-    let mut _res = Vec::new();
+    let mut res = Vec::new();
     for (file, &(logitem, ref cns)) in h.iter() {
 
         // prepare an empty Vector of Series
@@ -203,10 +204,10 @@ fn hash_map_iter(h : HashMap<&String, (&LogItem, Vec<(String, String)>)>, d_from
 
         // fill the prepared vector with all Series's
         for series in series_vec.iter() {
-            _res.push(TargetData::Series((*series).clone()));
+            res.push(TargetData::Series((*series).clone()));
         }
     }
-    Ok(_res)
+    Ok(res)
 }
 
 
