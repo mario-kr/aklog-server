@@ -23,6 +23,7 @@ use std::collections::HashMap;
 use std::fs::File;
 use std::io::{BufReader, BufRead};
 use std::process::exit;
+use std::str::FromStr;
 
 use clap::{App, Arg};
 use rocket::State;
@@ -222,6 +223,20 @@ fn main() {
              .help("configuration file to use")
              .takes_value(true)
              .required(true))
+        .arg(Arg::with_name("address")
+             .long("address")
+             .value_name("ADDR")
+             .help("Address to bind to")
+             .takes_value(true)
+             .default_value("127.0.0.1")
+             .required(false))
+        .arg(Arg::with_name("port")
+             .long("port")
+             .value_name("PORT")
+             .help("Port to bind to")
+             .takes_value(true)
+             .default_value("8000")
+             .required(false))
         .arg(Arg::with_name("verbosity")
              .short("v")
              .long("verbose")
@@ -247,8 +262,22 @@ fn main() {
         },
     };
 
-    rocket::ignite()
-        .manage(config)
-        .mount("/", routes![index, search, query])
-        .launch();
+    let host = matches.value_of("address").unwrap(); // safe by clap
+    let port = matches.value_of("port").map(u16::from_str)
+        .transpose()
+        .unwrap_or_else(|e| {
+            eprintln!("Parsing port failed: {:?}", e);
+            std::process::exit(1)
+        })
+        .unwrap(); // safe by clap
+
+    rocket::custom({
+        let mut c = rocket::config::Config::production();
+        c.set_address(host).expect(&format!("Using host address failed: {}", host));
+        c.set_port(port);
+        c
+    })
+    .manage(config)
+    .mount("/", routes![index, search, query])
+    .launch();
 }
