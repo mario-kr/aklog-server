@@ -23,7 +23,6 @@ use std::collections::HashMap;
 use std::fs::File;
 use std::path::PathBuf;
 use std::io::{BufReader, BufRead};
-use std::process::exit;
 use std::str::FromStr;
 
 use clap::{App, Arg};
@@ -211,7 +210,7 @@ fn hash_map_iter(h : HashMap<&String, (&LogItem, Vec<(String, String)>)>, d_from
 }
 
 
-fn main() {
+fn main() -> Result<()> {
 
     let matches = App::new("aklog-server")
         .version("0.1.0")
@@ -255,30 +254,23 @@ fn main() {
     debug!("Initialized logger");
 
     let config_file = matches.value_of("config").unwrap();
-    let config = match Config::load(PathBuf::from(String::from(config_file))) {
-        Ok(c) => c,
-        Err(e) => {
-            error!("{}", e);
-            exit(1);
-        },
-    };
+    let config = Config::load(PathBuf::from(String::from(config_file)))
+        .map_err(|e| format!("{}", e))?;
 
     let host = matches.value_of("address").unwrap(); // safe by clap
     let port = matches.value_of("port").map(u16::from_str)
         .transpose()
-        .unwrap_or_else(|e| {
-            eprintln!("Parsing port failed: {:?}", e);
-            std::process::exit(1)
-        })
+        .map_err(|e| format!("Parsing port failed: {:?}", e))?
         .unwrap(); // safe by clap
 
     rocket::custom({
         let mut c = rocket::config::Config::production();
-        c.set_address(host).expect(&format!("Using host address failed: {}", host));
+        c.set_address(host).map_err(|e| format!("Using host address failed: {}: {}", host, e))?;
         c.set_port(port);
         c
     })
     .manage(config)
     .mount("/", routes![index, search, query])
     .launch();
+    Ok(())
 }
