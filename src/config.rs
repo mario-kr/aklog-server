@@ -92,13 +92,14 @@ impl TryFrom<LogItemDeser> for LogItem {
         // The metric seen by grafana will be `alias.capturegroup_name`
         // One Regex may contain multiple named capture groups, so a vector
         // with all names is prepared here.
-        let mut als : Vec<String> = Vec::new();
-        for name in cnames.iter() {
-            let mut temp = String::from(lid.alias.as_str());
-            temp.push('.');
-            temp.push_str(name.as_str());
-            als.push(temp);
-        }
+        let als = cnames.iter()
+            .map(|name| {
+                let mut temp = String::from(lid.alias.as_str());
+                temp.push('.');
+                temp.push_str(name.as_str());
+                temp
+            })
+            .collect();
         debug!("aliases: {:?}", als);
 
         Ok(
