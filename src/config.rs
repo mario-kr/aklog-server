@@ -16,7 +16,7 @@ use getset::Getters;
 /// Holds data for one Log-File.
 /// Used for deserialization only
 #[derive(Clone, Debug, Deserialize)]
-pub struct LogItemDeser {
+struct LogItemDeser {
     file : String,
 
     #[serde(with="serde_regex")]
@@ -26,7 +26,7 @@ pub struct LogItemDeser {
 
 /// Used for deserialization only
 #[derive(Debug, Deserialize)]
-pub struct ConfigDeser {
+struct ConfigDeser {
     item : Vec<LogItemDeser>,
 }
 
