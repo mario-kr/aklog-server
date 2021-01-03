@@ -1,0 +1,5 @@
+[[item]]
+file = "./test_data"
+regex = "(?P<ts>\\d{9,})\\s(?P<data>\\d+)"
+alias = "test_data"
+

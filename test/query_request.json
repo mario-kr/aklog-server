@@ -1,0 +1,23 @@
+{
+  "panelId": 1,
+  "range": {
+    "from": "2021-01-01T00:00:00.000Z",
+    "to": "2021-01-01T03:00:00.000Z",
+    "raw": {
+      "from": "now-3h",
+      "to": "now"
+    }
+  },
+  "rangeRaw": {
+    "from": "now-3h",
+    "to": "now"
+  },
+  "interval": "30s",
+  "intervalMs": 30000,
+  "targets": [
+     { "target": "test_data.data", "refId": "A", "type": "timeserie" }
+  ],
+  "adhocFilters": [],
+  "format": "json",
+  "maxDataPoints": 550
+}
