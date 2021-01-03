@@ -128,20 +128,25 @@ pub struct Config {
 }
 
 impl Config {
+    pub fn load(path: PathBuf) -> Result<Self> {
+        ConfigDeser::load(path).and_then(Self::try_from)
+    }
+}
+
+impl TryFrom<ConfigDeser> for Config {
+    type Error = crate::error::Error;
 
     /// Lets serde do the deserialization, and transforms the given data
     /// for later access
-    pub fn load(path: PathBuf) -> Result<Self> {
-        let conf_deser = ConfigDeser::load(path)?;
-
-        let mut l_items : Vec<LogItem> = Vec::new();
-        for lid in conf_deser.get_items() {
-            l_items.push(LogItem::try_from((*lid).clone())?);
-        }
+    fn try_from(conf_deser: ConfigDeser) -> std::result::Result<Self, Self::Error> {
+        let l_items: Vec<LogItem> = conf_deser.item
+            .into_iter()
+            .map(LogItem::try_from)
+            .collect::<Result<_>>()?;
 
         // combines all aliases into one Vec for the /search endpoint
         let mut all_als : Vec<String> = Vec::new();
-        for li in &l_items {
+        for li in l_items.iter() {
             for als in li.aliases() {
                 all_als.push((*als).clone());
             }
