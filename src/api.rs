@@ -52,20 +52,20 @@ impl Series {
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct Column {
-    pub text: String,
-    #[serde(rename = "type")] pub _type: String,
+    text: String,
+    #[serde(rename = "type")] _type: String,
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct Table {
-    pub columns: Vec<Column>,
-    #[serde(rename = "type")] pub _type: String,
-    pub rows: Vec<Vec<serde_json::Value>>,
+    columns: Vec<Column>,
+    #[serde(rename = "type")] _type: String,
+    rows: Vec<Vec<serde_json::Value>>,
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct Search {
-    pub target: String,
+    target: String,
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
