@@ -135,20 +135,19 @@ impl TryFrom<ConfigDeser> for Config {
     /// Lets serde do the deserialization, and transforms the given data
     /// for later access
     fn try_from(conf_deser: ConfigDeser) -> std::result::Result<Self, Self::Error> {
-        let l_items: Vec<LogItem> = conf_deser.item
+        let items: Vec<LogItem> = conf_deser.item
             .into_iter()
             .map(LogItem::try_from)
             .collect::<Result<_>>()?;
 
         // combines all aliases into one Vec for the /search endpoint
-        let mut all_als : Vec<String> = Vec::new();
-        for li in l_items.iter() {
-            for als in li.aliases() {
-                all_als.push((*als).clone());
-            }
-        }
+        let all_aliases = items.iter()
+            .map(|li| li.aliases())
+            .flatten()
+            .cloned()
+            .collect();
 
-        Ok(Config { items: l_items, all_aliases : all_als })
+        Ok(Config { items, all_aliases })
     }
 }
 
