@@ -145,10 +145,9 @@ fn hash_map_iter(h : HashMap<&String, (&LogItem, Vec<(String, String)>)>, d_from
     for (file, &(logitem, ref cns)) in h.iter() {
 
         // prepare an empty Vector of Series
-        let mut series_vec = Vec::new();
-        for &(_, ref t) in cns.iter() {
-            series_vec.push(Series{ target : (*t).clone(), datapoints : Vec::new() });
-        }
+        let mut series_vec = cns.iter().map(|tpl| tpl.1.to_string())
+            .map(|target| Series { target, datapoints: Vec::new() })
+            .collect::<Vec<_>>();
 
         // open the current file for reading
         let mut line_iter = BufReader::new(
