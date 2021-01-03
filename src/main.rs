@@ -57,7 +57,7 @@ fn search(data : Json<Search>, config: State<Config>) -> Json<SearchResponse> {
 
     debug!("handling search request: {:?}", data.0);
     Json(
-        SearchResponse(
+        SearchResponse::from(
             (*config.all_aliases()).clone()
         )
     )
@@ -77,13 +77,13 @@ fn query(data: Json<Query>, config: State<Config>) -> Result<Json<QueryResponse>
 
     Ok(
         Json(
-            QueryResponse{
-                0 : hash_map_iter(
+            QueryResponse::from({
+                hash_map_iter(
                         hash_map_targets(&config, data.0.targets)?,
                         data.0.range.from.timestamp(),
                         data.0.range.to.timestamp()
                     )?
-            }
+            })
         )
     )
 }

@@ -69,8 +69,21 @@ pub struct Search {
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
-pub struct SearchResponse(pub Vec<String>);
+pub struct SearchResponse(Vec<String>);
+
+impl From<Vec<String>> for SearchResponse {
+    fn from(v: Vec<String>) -> Self {
+        SearchResponse(v)
+    }
+}
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
-pub struct QueryResponse(pub Vec<TargetData>);
+pub struct QueryResponse(Vec<TargetData>);
+
+
+impl From<Vec<TargetData>> for QueryResponse {
+    fn from(v: Vec<TargetData>) -> Self {
+        QueryResponse(v)
+    }
+}
 
