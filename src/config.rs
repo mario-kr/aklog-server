@@ -47,10 +47,6 @@ impl ConfigDeser {
             })
             .map_err(|_| ErrorKind::ConfigParseError(path).into())
     }
-
-    fn get_items(&self) -> &Vec<LogItemDeser> {
-        &self.item
-    }
 }
 
 //------------------------------------//
