@@ -200,9 +200,7 @@ fn hash_map_iter(h : HashMap<&String, (&LogItem, Vec<(String, String)>)>, d_from
         }
 
         // fill the prepared vector with all Series's
-        for series in series_vec.iter() {
-            res.push(TargetData::Series((*series).clone()));
-        }
+        res.extend(series_vec.into_iter().map(TargetData::Series));
     }
     Ok(res)
 }
