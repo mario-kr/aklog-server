@@ -145,8 +145,9 @@ fn hash_map_iter(h : HashMap<&String, (&LogItem, Vec<(String, String)>)>, d_from
     for (file, &(logitem, ref cns)) in h.iter() {
 
         // prepare an empty Vector of Series
-        let mut series_vec = cns.iter().map(|tpl| tpl.1.to_string())
-            .map(|target| Series { target, datapoints: Vec::new() })
+        let mut series_vec = cns.iter()
+            .map(|tpl| tpl.1.to_string())
+            .map(Series::new)
             .collect::<Vec<_>>();
 
         // open the current file for reading
@@ -187,7 +188,7 @@ fn hash_map_iter(h : HashMap<&String, (&LogItem, Vec<(String, String)>)>, d_from
                         series_vec
                             .get_mut(i)
                             .ok_or(Error::from("out of bounds: series_vec"))?
-                            .datapoints
+                            .datapoints_mut()
                             .push([
                                   captured,
                                   // grafana requires ms

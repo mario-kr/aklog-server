@@ -5,6 +5,7 @@
 
 use chrono::prelude::*;
 use serde_json;
+use getset::{Getters, MutGetters};
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Copy)]
 pub struct Range {
@@ -35,10 +36,18 @@ pub enum TargetData {
     Table(Table),
 }
 
-#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
+#[derive(Getters, MutGetters, Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct Series {
-    pub target: String,
-    pub datapoints: Vec<[f64; 2]>,
+    target: String,
+
+    #[getset(get = "pub", get_mut = "pub")]
+    datapoints: Vec<[f64; 2]>,
+}
+
+impl Series {
+    pub fn new(target: String) -> Self {
+        Series { target, datapoints: Vec::new() }
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
