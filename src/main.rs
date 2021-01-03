@@ -106,7 +106,7 @@ fn hash_map_targets<'a>(c : &'a Config, targets : Vec<Target>)
     debug!("targets: {:?}", targets);
     let mut res : HashMap<&String, (&LogItem, Vec<(String, String)>)> = HashMap::new();
     for li in c.items() {
-        for t in targets.clone() {
+        for t in targets.iter() {
             if li.aliases().contains(&t.target) {
                 if res.contains_key(&li.file()) {
                     if let Some(&mut (_litem, ref mut cnames)) = res.get_mut(&li.file()) {
