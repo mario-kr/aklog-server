@@ -4,6 +4,7 @@ extern crate log;
 extern crate toml;
 
 use std::path::PathBuf;
+use std::convert::TryFrom;
 use regex::Regex;
 use error::*;
 use getset::Getters;
@@ -77,10 +78,11 @@ pub struct LogItem {
     aliases : Vec<String>,
 }
 
-impl LogItem {
+impl TryFrom<LogItemDeser> for LogItem {
+    type Error = crate::error::Error;
 
     /// Transforms a LogItemDeser into a more immediately usable LogItem
-    fn from_log_item_deser(lid : LogItemDeser) -> Result<LogItem> {
+    fn try_from(lid : LogItemDeser) -> std::result::Result<LogItem, Self::Error> {
         // first capture is the whole match and nameless
         // second capture is always the timestamp
         let cnames : Vec<String> = lid.regex
@@ -134,7 +136,7 @@ impl Config {
 
         let mut l_items : Vec<LogItem> = Vec::new();
         for lid in conf_deser.get_items() {
-            l_items.push(LogItem::from_log_item_deser((*lid).clone())?);
+            l_items.push(LogItem::try_from((*lid).clone())?);
         }
 
         // combines all aliases into one Vec for the /search endpoint
