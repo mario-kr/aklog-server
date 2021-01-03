@@ -17,7 +17,9 @@ use getset::Getters;
 #[derive(Clone, Debug, Deserialize)]
 pub struct LogItemDeser {
     file : String,
-    regex : String,
+
+    #[serde(with="serde_regex")]
+    regex : Regex,
     alias : String,
 }
 
@@ -79,14 +81,9 @@ impl LogItem {
 
     /// Transforms a LogItemDeser into a more immediately usable LogItem
     fn from_log_item_deser(lid : LogItemDeser) -> Result<LogItem> {
-
-        debug!("trying to parse regex `{}`", lid.regex);
-        let l_regex = Regex::new(lid.regex.as_str())
-            .chain_err(|| format!("regex not parseable: '{}'", lid.regex))?;
-
         // first capture is the whole match and nameless
         // second capture is always the timestamp
-        let cnames : Vec<String> = l_regex
+        let cnames : Vec<String> = lid.regex
             .capture_names()
             .skip(2)
             .filter_map(|n| n)
@@ -109,7 +106,7 @@ impl LogItem {
         Ok(
             LogItem {
                 file : lid.file,
-                regex : l_regex,
+                regex : lid.regex,
                 alias: lid.alias,
                 capture_names : cnames,
                 aliases : als
