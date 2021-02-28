@@ -1,7 +1,6 @@
 #![recursion_limit = "1024"]
 
-#![feature(plugin)]
-#![plugin(rocket_codegen)]
+#![feature(decl_macro)]
 
 extern crate clap;
 extern crate chrono;
@@ -11,22 +10,26 @@ extern crate error_chain;
 #[macro_use]
 extern crate log;
 extern crate regex;
+#[macro_use]
 extern crate rocket;
 extern crate rocket_contrib;
 extern crate serde;
 #[macro_use]
 extern crate serde_derive;
 extern crate serde_json;
+extern crate serde_regex;
 extern crate simplelog;
+extern crate getset;
 
 use std::collections::HashMap;
 use std::fs::File;
+use std::path::PathBuf;
 use std::io::{BufReader, BufRead};
-use std::process::exit;
+use std::str::FromStr;
 
 use clap::{App, Arg};
 use rocket::State;
-use rocket_contrib::Json;
+use rocket_contrib::json::Json;
 use simplelog::{SimpleLogger, LogLevelFilter, Config as LogConfig};
 
 mod api;
@@ -54,7 +57,7 @@ fn search(data : Json<Search>, config: State<Config>) -> Json<SearchResponse> {
 
     debug!("handling search request: {:?}", data.0);
     Json(
-        SearchResponse(
+        SearchResponse::from(
             (*config.all_aliases()).clone()
         )
     )
@@ -74,13 +77,13 @@ fn query(data: Json<Query>, config: State<Config>) -> Result<Json<QueryResponse>
 
     Ok(
         Json(
-            QueryResponse{
-                0 : hash_map_iter(
+            QueryResponse::from({
+                hash_map_iter(
                         hash_map_targets(&config, data.0.targets)?,
                         data.0.range.from.timestamp(),
                         data.0.range.to.timestamp()
                     )?
-            }
+            })
         )
     )
 }
@@ -101,12 +104,12 @@ fn hash_map_targets<'a>(c : &'a Config, targets : Vec<Target>)
     -> Result<HashMap<&'a String, (&'a LogItem, Vec<(String, String)>)>> {
 
     debug!("targets: {:?}", targets);
-    let mut _res : HashMap<&String, (&LogItem, Vec<(String, String)>)> = HashMap::new();
+    let mut res : HashMap<&String, (&LogItem, Vec<(String, String)>)> = HashMap::new();
     for li in c.items() {
-        for t in targets.clone() {
+        for t in targets.iter() {
             if li.aliases().contains(&t.target) {
-                if _res.contains_key(&li.file()) {
-                    if let Some(&mut (_litem, ref mut cnames)) = _res.get_mut(&li.file()) {
+                if res.contains_key(&li.file()) {
+                    if let Some(&mut (_litem, ref mut cnames)) = res.get_mut(&li.file()) {
                         cnames.push((
                                 cname_from_target(&t.target)?,
                                 t.target.clone())
@@ -114,7 +117,7 @@ fn hash_map_targets<'a>(c : &'a Config, targets : Vec<Target>)
                     }
                 }
                 else {
-                    _res.insert(
+                    res.insert(
                         li.file(),
                         (
                             &li,
@@ -125,36 +128,32 @@ fn hash_map_targets<'a>(c : &'a Config, targets : Vec<Target>)
             }
         }
     }
-    Ok(_res)
+
+    Ok(res)
 }
 
 /// splits the target and return the capture name part
 fn cname_from_target<'a>(t : &'a String) -> Result<String> {
-    Ok(
-        t.split('.')
-        .nth(1)
-        .ok_or(Error::from("no capture name found"))?
-        .into()
-    )
+    t.split('.').nth(1).map(str::to_string).ok_or(Error::from("no capture name found").into())
 }
 
 /// Iterate the hashmap created with the above function
 fn hash_map_iter(h : HashMap<&String, (&LogItem, Vec<(String, String)>)>, d_from : i64, d_to : i64)
     -> Result<Vec<TargetData>> {
 
-    let mut _res = Vec::new();
+    let mut res = Vec::new();
     for (file, &(logitem, ref cns)) in h.iter() {
 
         // prepare an empty Vector of Series
-        let mut series_vec = Vec::new();
-        for &(_, ref t) in cns.iter() {
-            series_vec.push(Series{ target : (*t).clone(), datapoints : Vec::new() });
-        }
+        let mut series_vec = cns.iter()
+            .map(|tpl| tpl.1.to_string())
+            .map(Series::new)
+            .collect::<Vec<_>>();
 
         // open the current file for reading
         let mut line_iter = BufReader::new(
             File::open(file)
-            .chain_err(|| format!("antikoerper log file could not be opened: {}", logitem.file()))?
+            .chain_err(|| format!("log file could not be opened: {}", logitem.file()))?
             ).lines();
 
         // read the file line by line...
@@ -189,7 +188,7 @@ fn hash_map_iter(h : HashMap<&String, (&LogItem, Vec<(String, String)>)>, d_from
                         series_vec
                             .get_mut(i)
                             .ok_or(Error::from("out of bounds: series_vec"))?
-                            .datapoints
+                            .datapoints_mut()
                             .push([
                                   captured,
                                   // grafana requires ms
@@ -201,20 +200,18 @@ fn hash_map_iter(h : HashMap<&String, (&LogItem, Vec<(String, String)>)>, d_from
         }
 
         // fill the prepared vector with all Series's
-        for series in series_vec.iter() {
-            _res.push(TargetData::Series((*series).clone()));
-        }
+        res.extend(series_vec.into_iter().map(TargetData::Series));
     }
-    Ok(_res)
+    Ok(res)
 }
 
 
-fn main() {
+fn main() -> Result<()> {
 
     let matches = App::new("aklog-server")
         .version("0.1.0")
         .author("Mario Krehl <mario-krehl@gmx.de>")
-        .about("Presents antikoerper-logfiles to grafana")
+        .about("Presents regex-parsable data to grafana")
         .arg(Arg::with_name("config")
              .short("c")
              .long("config")
@@ -222,6 +219,20 @@ fn main() {
              .help("configuration file to use")
              .takes_value(true)
              .required(true))
+        .arg(Arg::with_name("address")
+             .long("address")
+             .value_name("ADDR")
+             .help("Address to bind to")
+             .takes_value(true)
+             .default_value("127.0.0.1")
+             .required(false))
+        .arg(Arg::with_name("port")
+             .long("port")
+             .value_name("PORT")
+             .help("Port to bind to")
+             .takes_value(true)
+             .default_value("8000")
+             .required(false))
         .arg(Arg::with_name("verbosity")
              .short("v")
              .long("verbose")
@@ -230,25 +241,33 @@ fn main() {
         .get_matches();
 
     // Set level of verbosity and initialize the logger
-    match matches.occurrences_of("verbosity") {
-        0 => SimpleLogger::init(LogLevelFilter::Warn, LogConfig::default()).unwrap(),
-        1 => SimpleLogger::init(LogLevelFilter::Info, LogConfig::default()).unwrap(),
-        2 => SimpleLogger::init(LogLevelFilter::Debug, LogConfig::default()).unwrap(),
-        3 | _  => SimpleLogger::init(LogLevelFilter::Trace, LogConfig::default()).unwrap(),
+    let filter = match matches.occurrences_of("verbosity") {
+        0      => LogLevelFilter::Warn,
+        1      => LogLevelFilter::Info,
+        2      => LogLevelFilter::Debug,
+        3 | _  => LogLevelFilter::Trace,
     };
+    SimpleLogger::init(filter, LogConfig::default()).unwrap();
     debug!("Initialized logger");
 
     let config_file = matches.value_of("config").unwrap();
-    let config = match Config::load(String::from(config_file)) {
-        Ok(c) => c,
-        Err(e) => {
-            error!("{}", e);
-            exit(1);
-        },
-    };
+    let config = Config::load(PathBuf::from(String::from(config_file)))
+        .map_err(|e| format!("{}", e))?;
 
-    rocket::ignite()
-        .manage(config)
-        .mount("/", routes![index, search, query])
-        .launch();
+    let host = matches.value_of("address").unwrap(); // safe by clap
+    let port = matches.value_of("port").map(u16::from_str)
+        .transpose()
+        .map_err(|e| format!("Parsing port failed: {:?}", e))?
+        .unwrap(); // safe by clap
+
+    rocket::custom({
+        let mut c = rocket::config::Config::production();
+        c.set_address(host).map_err(|e| format!("Using host address failed: {}: {}", host, e))?;
+        c.set_port(port);
+        c
+    })
+    .manage(config)
+    .mount("/", routes![index, search, query])
+    .launch();
+    Ok(())
 }

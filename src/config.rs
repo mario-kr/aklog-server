@@ -3,57 +3,49 @@
 extern crate log;
 extern crate toml;
 
-use std::fs::File;
-use std::io::Read;
+use std::path::PathBuf;
+use std::convert::TryFrom;
 use regex::Regex;
 use error::*;
+use getset::Getters;
 
 //------------------------------------//
 //  structs for deserialization       //
 //------------------------------------//
 
-/// Holds data for one antikoerper Log-File.
+/// Holds data for one Log-File.
 /// Used for deserialization only
 #[derive(Clone, Debug, Deserialize)]
-pub struct LogItemDeser {
+struct LogItemDeser {
     file : String,
-    regex : String,
+
+    #[serde(with="serde_regex")]
+    regex : Regex,
     alias : String,
 }
 
 /// Used for deserialization only
 #[derive(Debug, Deserialize)]
-pub struct ConfigDeser {
+struct ConfigDeser {
     item : Vec<LogItemDeser>,
 }
 
 impl ConfigDeser {
 
     /// Tries to open, read and parse a toml-file
-    pub fn load(filename : String) -> Result<ConfigDeser> {
+    pub fn load(path: PathBuf) -> Result<ConfigDeser> {
+        debug!("configuration file name: '{}'", path.display());
 
-        debug!("configuration file name: '{}'", filename);
-
-        let mut file = File::open(filename.clone())
-            .chain_err(|| "configuration file could not be opened")?;
-        debug!("configuration file successfully opened");
-
-        let mut content = String::new();
-        file.read_to_string(&mut content)
+        let s = std::fs::read_to_string(&path)
             .chain_err(|| "configuration file could not be read")?;
-        debug!("configuration file successfully read");
 
-        match toml::from_str(content.as_str()) {
-            Ok(config) => {
+        toml::from_str(&s)
+            .map(|obj| {
                 info!("successfully parsed configuration file");
-                Ok(config)
-            },
-            _ => Err(ErrorKind::ConfigParseError(filename).into()),
-        }
-    }
-
-    fn get_items(&self) -> &Vec<LogItemDeser> {
-        &self.item
+                debug!("Config = {:?}", obj);
+                obj
+            })
+            .map_err(|_| ErrorKind::ConfigParseError(path).into())
     }
 }
 
@@ -64,26 +56,32 @@ impl ConfigDeser {
 /// The deserialized Item would nearly always require some operation on its
 /// contents to use it, so we do those operations beforehand and only access
 /// the useful data from main().
+#[derive(Getters)]
 pub struct LogItem {
+    #[getset(get = "pub")]
     file : String,
+
+    #[getset(get = "pub")]
     regex : Regex,
+
+    #[getset(get = "pub")]
     alias : String,
+
+    #[getset(get = "pub")]
     capture_names : Vec<String>,
+
+    #[getset(get = "pub")]
     aliases : Vec<String>,
 }
 
-impl LogItem {
+impl TryFrom<LogItemDeser> for LogItem {
+    type Error = crate::error::Error;
 
     /// Transforms a LogItemDeser into a more immediately usable LogItem
-    fn from_log_item_deser(lid : LogItemDeser) -> Result<LogItem> {
-
-        debug!("trying to parse regex `{}`", lid.regex);
-        let l_regex = Regex::new(lid.regex.as_str())
-            .chain_err(|| format!("regex not parseable: '{}'", lid.regex))?;
-
+    fn try_from(lid : LogItemDeser) -> std::result::Result<LogItem, Self::Error> {
         // first capture is the whole match and nameless
         // second capture is always the timestamp
-        let cnames : Vec<String> = l_regex
+        let cnames : Vec<String> = lid.regex
             .capture_names()
             .skip(2)
             .filter_map(|n| n)
@@ -94,83 +92,63 @@ impl LogItem {
         // The metric seen by grafana will be `alias.capturegroup_name`
         // One Regex may contain multiple named capture groups, so a vector
         // with all names is prepared here.
-        let mut als : Vec<String> = Vec::new();
-        for name in cnames.clone() {
-            let mut temp = String::from(lid.alias.as_str());
-            temp.push('.');
-            temp.push_str(name.as_str());
-            als.push(temp);
-        }
+        let als = cnames.iter()
+            .map(|name| {
+                let mut temp = String::from(lid.alias.as_str());
+                temp.push('.');
+                temp.push_str(name.as_str());
+                temp
+            })
+            .collect();
         debug!("aliases: {:?}", als);
 
         Ok(
             LogItem {
                 file : lid.file,
-                regex : l_regex,
+                regex : lid.regex,
                 alias: lid.alias,
                 capture_names : cnames,
                 aliases : als
             }
         )
     }
-
-    pub fn file(&self) -> &String {
-        &self.file
-    }
-
-    pub fn regex(&self) -> &Regex {
-        &self.regex
-    }
-
-    pub fn alias(&self) -> &String {
-        &self.alias
-    }
-
-    pub fn capture_names(&self) -> &Vec<String> {
-        &self.capture_names
-    }
-
-    pub fn aliases(&self) -> &Vec<String> {
-        &self.aliases
-    }
 }
 
 /// Contains more immediately usable data
+#[derive(Getters)]
 pub struct Config {
+    #[getset(get = "pub")]
     items : Vec<LogItem>,
+
+    #[getset(get = "pub")]
     all_aliases : Vec<String>,
 }
 
 impl Config {
+    pub fn load(path: PathBuf) -> Result<Self> {
+        ConfigDeser::load(path).and_then(Self::try_from)
+    }
+}
+
+impl TryFrom<ConfigDeser> for Config {
+    type Error = crate::error::Error;
 
     /// Lets serde do the deserialization, and transforms the given data
     /// for later access
-    pub fn load(filename : String) -> Result<Self> {
-
-        let conf_deser = ConfigDeser::load(filename)?;
-
-        let mut l_items : Vec<LogItem> = Vec::new();
-        for lid in conf_deser.get_items() {
-            l_items.push(LogItem::from_log_item_deser((*lid).clone())?);
-        }
+    fn try_from(conf_deser: ConfigDeser) -> std::result::Result<Self, Self::Error> {
+        let items: Vec<LogItem> = conf_deser.item
+            .into_iter()
+            .map(LogItem::try_from)
+            .collect::<Result<_>>()?;
 
         // combines all aliases into one Vec for the /search endpoint
-        let mut all_als : Vec<String> = Vec::new();
-        for li in &l_items {
-            for als in li.aliases() {
-                all_als.push((*als).clone());
-            }
-        }
+        let all_aliases = items.iter()
+            .map(|li| li.aliases())
+            .flatten()
+            .cloned()
+            .collect();
 
-        Ok(Config { items: l_items, all_aliases : all_als })
-    }
-
-    pub fn items(&self) -> &Vec<LogItem> {
-        &self.items
-    }
-
-    pub fn all_aliases(&self) -> &Vec<String> {
-        &self.all_aliases
+        Ok(Config { items, all_aliases })
     }
 }
 
